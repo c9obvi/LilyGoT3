@@ -4,10 +4,10 @@
 #include <ArduinoJson.h> // Include ArduinoJson library
 
 // WiFi credentials
-const char* ssid1 = "wifiAP3";
-const char* password1 = "edpo1-Byfkar";
-const char* ssid2 = "Mro-engWifi";
-const char* password2 = "mRomRomRo1";
+const char* ssid1 = "***";
+const char* password1 = "***";
+const char* ssid2 = "***";
+const char* password2 = "***";
 
 // Access Point settings
 const char* apSSID = "BitcoinDisplay";
@@ -30,8 +30,13 @@ const long interval = 50000; // Interval at which to refresh (milliseconds, 50 s
 void setupWiFi() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  delay(500); 
   tft.drawString("Crypto Watch", 10, 10, 4);
+  delay(1500); // Wait for 2 seconds
+  tft.drawString("By 0xBerto ", 10, 10, 4);
+  delay(1500);
   Serial.println("Connecting to WiFi...");
+  delay(1500);
   
   WiFi.begin(ssid1, password1);
   int attempts = 0;
@@ -51,6 +56,7 @@ void setupWiFi() {
     tft.drawString("Connected to WiFi", 10, 10, 4);
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
+    delay(1000);
     tft.drawString("IP: " + WiFi.localIP().toString(), 10, 30, 4);
   } else {
     Serial.println("\nFailed to connect to WiFi. Setting up AP...");
