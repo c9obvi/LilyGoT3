@@ -8,6 +8,8 @@ const char* ssid1 = "***";
 const char* password1 = "***";
 const char* ssid2 = "***";
 const char* password2 = "***";
+const char* ssid3 = "phone_hotspot";
+const char* password3 = "****";
 
 // Access Point settings
 const char* apSSID = "BitcoinDisplay";
@@ -30,23 +32,25 @@ const long interval = 50000; // Interval at which to refresh (milliseconds, 50 s
 void setupWiFi() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  delay(500); 
   tft.drawString("Crypto Watch", 10, 10, 4);
-  delay(1500); // Wait for 2 seconds
-  tft.drawString("By 0xBerto ", 10, 10, 4);
-  delay(1500);
-  Serial.println("Connecting to WiFi...");
+  tft.drawString("By 0xBerto", 12, 35, 4);
+  delay(1200); // Delay to allow reading the screen
+  tft.drawString("Connecting to WiFi...", 10, 65, 4);
   delay(1500);
   
   WiFi.begin(ssid1, password1);
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) { // Increase max attempts if you have more WiFi networks
     delay(500);
     Serial.print(".");
+    tft.drawString(".", 10 + (attempts * 6), 130, 4); // Adjusted Y for visibility
     attempts++;
     if(attempts == 10) {
-      Serial.println("Trying second WiFi network...");
+      Serial.println("\nTrying second WiFi network...");
       WiFi.begin(ssid2, password2);
+    } else if(attempts == 20) { // Changed to else if and adjusted to 20 attempts
+      Serial.println("\nTrying third WiFi network...");
+      WiFi.begin(ssid3, password3);
     }
   }
 
@@ -56,8 +60,8 @@ void setupWiFi() {
     tft.drawString("Connected to WiFi", 10, 10, 4);
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
-    delay(1000);
-    tft.drawString("IP: " + WiFi.localIP().toString(), 10, 30, 4);
+    delay(1000); // Display IP address briefly
+    tft.drawString("IP: " + WiFi.localIP().toString(), 10, 80, 4);
   } else {
     Serial.println("\nFailed to connect to WiFi. Setting up AP...");
     WiFi.softAP(apSSID, apPassword);
@@ -65,6 +69,7 @@ void setupWiFi() {
     Serial.println(WiFi.softAPIP());
   }
 }
+
 
 void fetchCryptoData(float &price, float &percentChange, String cryptoId) {
   HTTPClient http;
@@ -91,8 +96,8 @@ void fetchCryptoData(float &price, float &percentChange, String cryptoId) {
 void displayCryptoData(float price, float percentChange, const char* cryptoName) {
     tft.fillScreen(TFT_BLACK); // Clear the screen
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.drawString(String(cryptoName) + " Price: $" + String(price), 10, 20, 4);
-    tft.drawString("24Hr Change: " + String(percentChange) + "%", 10, 50, 4);
+    tft.drawString(String(cryptoName) + " Price: $" + String(price), 12, 20, 4);
+    tft.drawString("24Hr Change: " + String(percentChange) + "%", 14, 50, 4);
 }
 
 void setup() {
