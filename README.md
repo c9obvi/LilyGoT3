@@ -6,6 +6,21 @@ This repository is dedicated to Arduino sketches (`*.ino` files) specifically de
 
 The LilyGo T-Display S3 is part of the LilyGo T-Display series, featuring an ESP32 chip with Wi-Fi and Bluetooth capabilities, along with a colorful TFT display for visual output. It is an excellent platform for IoT projects, educational purposes, and DIY electronics enthusiasts looking to create interactive and connected devices.
 
+### Configuring the TFT_eSPI Library
+
+For the projects in this repository to work correctly with your LilyGo T-Display S3, you'll need to configure the TFT_eSPI library to use the correct display driver. Follow these steps:
+
+1. Navigate to your Arduino libraries directory, typically found at `~/Documents/Arduino/libraries/TFT_eSPI`.
+2. Open the `User_Setup_Select.h` file for editing. You can use `nano` if you're on a Unix-like system:
+   ```
+   nano User_Setup_Select.h
+   ```
+3. Comment out the current display driver selection by adding `//` at the beginning of the line.
+4. Uncomment the line corresponding to the display driver used by your LilyGo T-Display S3 by removing `//` from the beginning of the appropriate line.
+5. Save the file and exit the editor. If you're using `nano`, you can do this by pressing `CTRL + X`, then `Y` to confirm saving, and `Enter` to exit.
+
+This configuration step ensures that the TFT_eSPI library communicates correctly with the display on your LilyGo T-Display S3.
+
 ## Projects in This Repository
 
 ### Bitcoin Price Tracker
