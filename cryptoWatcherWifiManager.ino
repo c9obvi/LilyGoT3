@@ -39,3 +39,28 @@ void setup() {
 }
 
 // Keep the rest of your functions (loop, fetchCryptoData, displayCryptoData) unchanged
+
+void loop() {
+  unsigned long currentMillis = millis();
+  static unsigned long lastButtonPress = 0; // Timestamp of the last button press
+  
+  // Debounce and detect button press
+  if (digitalRead(buttonPin) == LOW && millis() - lastButtonPress > 200) { // 200ms debounce
+    lastButtonPress = millis(); // Update last button press time
+    currentCryptoIndex = (currentCryptoIndex + 1) % numCryptos; // Cycle to the next cryptocurrency
+
+    // Fetch and display new cryptocurrency data immediately
+    float price = 0, percentChange = 0;
+    fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
+    displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
+  }
+  
+  // Regular data refresh logic
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+
+    float price = 0, percentChange = 0;
+    fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
+    displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
+  }
+}
