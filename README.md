@@ -21,10 +21,10 @@ For the projects in this repository to work correctly with your LilyGo T-Display
 
 This configuration step ensures that the TFT_eSPI library communicates correctly with the display on your LilyGo T-Display S3.
 
+## Fixing Library Import Issue for QR Code Generation
+
 > [!IMPORTANT]  
 > Crucial information regarding import issue for QR Code generation -- necessary for users to succeed.
-
-## Fixing Library Import Issue for QR Code Generation
 
 When integrating the QR code generation library by Richard Moore into the ESP32 project, a naming conflict issue was encountered, preventing the library from being correctly recognized and used. The issue was resolved by renaming the library files and adjusting the project to reference the new names.
 
