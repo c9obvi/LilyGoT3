@@ -25,9 +25,9 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextSize(1);
   
-  tft.drawString("Crypto Watcher", 70, 10, 4);
-  tft.drawString("By 0xBerto", 85, 35, 4);
-  tft.drawString("Configuring WiFi...", 55, 65, 4);
+  tft.drawString("Crypto Watcher", 75, 40, 4);
+  tft.drawString("By 0xBerto", 95, 70, 4);
+  tft.drawString("Configuring WiFi...", 65, 110, 4);
   delay(3000); // Show the splash screen for a few seconds
   displayQRCodeForSSID("CryptoWatcherAP"); // Call this with your desired SSID
 
@@ -80,9 +80,13 @@ void loop() {
 }
 
 void displayQRCodeForSSID(const char* ssid) {
+    // Format the string for an open WiFi network QR code
+    String qrCodeContent = "WIFI:T:nopass;S:" + String(ssid) + ";;";
+
     QRCode qrcode;
-    uint8_t qrcodeData[qrcode_getBufferSize(3)]; // Choose an appropriate version for your data
-    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, ssid); // Initialize the QR code
+    uint8_t qrcodeData[qrcode_getBufferSize(3)]; // Adjust the version as needed
+    // Use qrCodeContent.c_str() to convert the String to a C-style string (char array)
+    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, qrCodeContent.c_str()); // Initialize the QR code
 
     int scale = 4; // Adjust scale based on your display size and desired QR code size
     int qrSize = qrcode.size * scale; // Total QR size in pixels
