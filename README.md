@@ -22,7 +22,7 @@ For the projects in this repository to work correctly with your LilyGo T-Display
 This configuration step ensures that the TFT_eSPI library communicates correctly with the display on your LilyGo T-Display S3.
 
 > [!IMPORTANT]  
-> Crucial information necessary for users to succeed.
+> Crucial information regarding import issue for QR Code generation -- necessary for users to succeed.
 
 ## Fixing Library Import Issue for QR Code Generation
 
