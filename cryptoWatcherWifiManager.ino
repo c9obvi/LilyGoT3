@@ -21,13 +21,16 @@ void setup() {
   tft.init();
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
-  tft.setTextSize(2);
+  tft.setTextSize(1);
   
   // Display the initial splash screen
-  tft.setCursor(10, 10);
-  tft.println("CryptoWatcher");
-  tft.setCursor(12, 50);
-  tft.println("By 0xBerto");
+  //tft.setCursor(10, 10);
+  //tft.println("CryptoWatcher");
+  tft.drawString("Crypto Watcher", 10, 10, 4);
+  //tft.setCursor(12, 50);
+  //tft.println("By 0xBerto");
+  tft.drawString("By 0xBerto", 12, 35, 4);
+  tft.drawString("Configuring WiFi...", 10, 65, 4);
   delay(3000); // Show the splash screen for a few seconds
 
   // Initialize Wi-Fi using WiFiManager
@@ -37,9 +40,16 @@ void setup() {
   Serial.println("Connected to Wi-Fi");
 
   // Display a connected message and IP address
-  tft.setCursor(10, 10);
-  tft.print("Connected! IP: ");
-  tft.println(WiFi.localIP());
+  //tft.setCursor(10, 10);
+  //tft.print("Connected! IP: ");
+  //tft.println(WiFi.localIP());
+  Serial.println("\nConnected to WiFi");
+  tft.fillScreen(TFT_BLACK);
+  tft.drawString("Connected to WiFi", 10, 10, 4);
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+  delay(1000); // Display IP address briefly
+  tft.drawString("IP: " + WiFi.localIP().toString(), 10, 80, 4);
 
   // Fetch and display initial cryptocurrency data
   float price = 0, percentChange = 0;
