@@ -21,6 +21,38 @@ For the projects in this repository to work correctly with your LilyGo T-Display
 
 This configuration step ensures that the TFT_eSPI library communicates correctly with the display on your LilyGo T-Display S3.
 
+> [!IMPORTANT]  
+> Crucial information necessary for users to succeed.
+
+## Fixing Library Import Issue for QR Code Generation
+
+When integrating the QR code generation library by Richard Moore into the ESP32 project, a naming conflict issue was encountered, preventing the library from being correctly recognized and used. The issue was resolved by renaming the library files and adjusting the project to reference the new names.
+
+### Steps to Resolve the Naming Conflict:
+
+1. **Rename Library Files**: The original `QRCode.h` and `QRCode.c` files were renamed to `qrcoderm.h` and `qrcoderm.c`, respectively. This step avoids naming conflicts with other components or libraries.
+
+2. **Update Include Directives**: In the project, the include directive was changed to match the new filename:
+   ```cpp
+   #include <qrcoderm.h>
+   ```
+
+3. **Adjust the Library's Folder Name**: The library folder was renamed to `qrcoderm` to match the new naming scheme and ensure consistency.
+
+4. **Modify Include in C File**: In the `qrcoderm.c` file, the include statement was updated to reflect the new header file name:
+   ```c
+   #include "qrcoderm.h"
+   ```
+
+5. **Compilation and Testing**: After these adjustments, the project compiled successfully, and the import issue was resolved.
+
+### Implementation Notes:
+
+This solution was specifically tailored to resolve a naming conflict encountered during the project's development. It highlights the importance of carefully managing library names and include directives, especially when integrating third-party libraries into complex projects.
+
+Should similar issues arise, consider following these steps to diagnose and resolve naming conflicts, ensuring smooth library integration and functionality.
+
+
 ## Projects in This Repository
 
 ### Bitcoin Price Tracker
