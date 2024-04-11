@@ -25,9 +25,9 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextSize(1);
   
-  tft.drawString("Crypto Watcher", 10, 10, 4);
-  tft.drawString("By 0xBerto", 12, 35, 4);
-  tft.drawString("Configuring WiFi...", 10, 65, 4);
+  tft.drawString("Crypto Watcher", 70, 10, 4);
+  tft.drawString("By 0xBerto", 85, 35, 4);
+  tft.drawString("Configuring WiFi...", 55, 65, 4);
   delay(3000); // Show the splash screen for a few seconds
   displayQRCodeForSSID("CryptoWatcherAP"); // Call this with your desired SSID
 
@@ -40,7 +40,6 @@ void setup() {
     tft.drawString("Connect to WiFi: CryptoWatcherAP", 10, 40, 4);
     // Placeholder for QR code display logic
     displayQRCodeForSSID("CryptoWatcherAP"); 
-    tft.println("Please scan to configure WiFi")
   } else {
     Serial.println("Connected to Wi-Fi");
     tft.fillScreen(TFT_BLACK);
@@ -82,22 +81,32 @@ void loop() {
 
 void displayQRCodeForSSID(const char* ssid) {
     QRCode qrcode;
-    uint8_t qrcodeData[qrcode_getBufferSize(3)]; // Adjust the version as needed
+    uint8_t qrcodeData[qrcode_getBufferSize(3)]; // Choose an appropriate version for your data
     qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, ssid); // Initialize the QR code
 
-    // Determine scaling based on your display size and QR code size
-    int scale = max(1, min(tft.width() / qrcode.size, tft.height() / qrcode.size));
+    int scale = 4; // Adjust scale based on your display size and desired QR code size
+    int qrSize = qrcode.size * scale; // Total QR size in pixels
+
+    // Calculate starting position to center the QR code
+    int startX = (tft.width() - qrSize) / 2;
+    int startY = (tft.height() - qrSize) / 2;
 
     tft.fillScreen(TFT_BLACK); // Clear the screen
-    
-    // Iterate over the QR code modules and draw them
+
+    // Draw each module of the QR code
     for (int y = 0; y < qrcode.size; y++) {
         for (int x = 0; x < qrcode.size; x++) {
             if (qrcode_getModule(&qrcode, x, y)) {
-                tft.fillRect(x * scale, y * scale, scale, scale, TFT_WHITE);
-            } // No else part needed, as the background is already cleared
+                tft.fillRect(startX + x * scale, startY + y * scale, scale, scale, TFT_WHITE);
+            }
         }
     }
+
+    // Display instruction text below the QR code
+    tft.setCursor(startX - 30, startY + qrSize + 10); // Adjust y position to be just below the QR code
+    tft.setTextColor(TFT_WHITE, TFT_BLACK); // Set text color; adjust as needed
+    tft.setTextSize(2); // Adjust text size as needed
+    tft.println("Scan to connect");
 }
 
 void fetchCryptoData(float &price, float &percentChange, const char* cryptoId) {
