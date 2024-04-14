@@ -24,29 +24,26 @@ void setup() {
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
   tft.setTextSize(1);
-  
-  tft.drawString("Crypto Watcher", 75, 40, 4);
-  tft.drawString("By 0xBerto", 95, 70, 4);
-  tft.drawString("Configuring WiFi...", 65, 110, 4);
-  delay(3000); // Show the splash screen for a few seconds
-  displayQRCodeForSSID("CryptoWatcherAP"); // Call this with your desired SSID
-
 
   WiFiManager wifiManager;
-  if (!wifiManager.startConfigPortal("CryptoWatcherAP")) {
+  
+  // Attempt to auto-connect to previously saved WiFi without starting the config portal
+  wifiManager.setConfigPortalTimeout(180); // Timeout for trying to connect to saved WiFi; adjust as needed
+  if(!wifiManager.autoConnect("CryptoWatcherAP")) {
+    Serial.println("Failed to connect and hit timeout");
+    // Failed to connect to WiFi and hit timeout
+    // Clear the screen and display the QR code
     tft.fillScreen(TFT_BLACK);
-    tft.drawString("Could not find known AP", 10, 10, 4);
-    tft.drawString("Turning into AP", 10, 25, 4);
-    tft.drawString("Connect to WiFi: CryptoWatcherAP", 10, 40, 4);
-    // Placeholder for QR code display logic
     displayQRCodeForSSID("CryptoWatcherAP"); 
   } else {
+    // Successfully connected to WiFi
+    tft.drawString("Crypto Watcher", 75, 40, 4);
+    tft.drawString("By 0xBerto", 95, 70, 4);
+    tft.drawString("Connected to WiFi", 65, 110, 4);
+    delay(3000); // Show the connected message for a few seconds
     Serial.println("Connected to Wi-Fi");
-    tft.fillScreen(TFT_BLACK);
-    tft.drawString("Connected to WiFi", 10, 10, 4);
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
-    tft.drawString("IP: " + WiFi.localIP().toString(), 10, 80, 4);
   }
 
   float price = 0, percentChange = 0;
