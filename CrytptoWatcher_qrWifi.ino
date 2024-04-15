@@ -10,91 +10,110 @@ const char* cryptoIds[] = {"bitcoin", "ethereum", "dogecoin", "monero"};
 const char* cryptoNames[] = {"BTC", "ETH", "DOGE", "XMR"};
 int currentCryptoIndex = 0;
 int numCryptos = sizeof(cryptoIds) / sizeof(cryptoIds[0]);
+
 const int buttonPin = 14; // Pin for cycling through cryptocurrencies
+const int confirmButtonPin = 0; // Normally the boot button, used to confirm user choices
 
 unsigned long previousMillis = 0; // Stores the last time the update was made
 const long interval = 60000; // Interval at which to refresh (milliseconds, 60 seconds)
 
+float price = 0; // Declare price globally
+float percentChange = 0; // Declare percentChange globally
 
 void setup() {
-  Serial.begin(115200);
-  pinMode(buttonPin, INPUT_PULLUP);
-  
-  tft.init();
-  tft.setRotation(1);
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextSize(1);
-
-  WiFiManager wifiManager;
-  
-  // Attempt to auto-connect to previously saved WiFi without starting the config portal
-  wifiManager.setConfigPortalTimeout(180); // Timeout for trying to connect to saved WiFi; adjust as needed
-  if(!wifiManager.autoConnect("CryptoWatcherAP")) {
-    Serial.println("Failed to connect and hit timeout");
-    // Failed to connect to WiFi and hit timeout
-    // Clear the screen and display the QR code
+    Serial.begin(115200);
+    pinMode(buttonPin, INPUT_PULLUP);
+    
+    tft.init();
+    tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
-    displayQRCodeForSSID("CryptoWatcherAP"); 
-  } else {
-    // Successfully connected to WiFi
-    tft.drawString("Crypto Watcher", 75, 40, 4);
-    tft.drawString("By 0xBerto", 95, 70, 4);
-    tft.drawString("Connected to WiFi", 65, 110, 4);
-    delay(3000); // Show the connected message for a few seconds
-    Serial.println("Connected to Wi-Fi");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
-  }
+    tft.setTextSize(1);
 
-  float price = 0, percentChange = 0;
-  fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
-  displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
+    // Check if the main button is pressed on startup
+    bool resetPressed = digitalRead(buttonPin) == LOW;
+    delay(100); // Debounce delay
+    resetPressed &= digitalRead(buttonPin) == LOW; // Check again to confirm
+
+    if (resetPressed) {
+        displayResetConfirmationScreen(); // Function that handles reset confirmation
+    }
+
+    WiFiManager wifiManager;
+    if (!wifiManager.autoConnect("CryptoWatcherAP")) {
+        Serial.println("Failed to connect and hit timeout");
+        tft.fillScreen(TFT_BLACK);
+        displayQRCodeForSSID("CryptoWatcherAP"); 
+    } else {
+        Serial.println("Connected to Wi-Fi");
+        Serial.print("IP Address: ");
+        Serial.println(WiFi.localIP());
+        tft.drawString("Crypto Watcher", 75, 40, 4);
+        tft.drawString("By 0xBerto", 95, 70, 4);
+        tft.drawString("Connected to WiFi", 65, 110, 4);
+        delay(3000);
+    }
+
+    fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
+    displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
 }
 
 void loop() {
-  unsigned long currentMillis = millis();
-  static unsigned long lastButtonPress = 0; // Timestamp of the last button press
-  
-  // Debounce and detect button press
-  if (digitalRead(buttonPin) == LOW && millis() - lastButtonPress > 200) { // 200ms debounce
-    lastButtonPress = millis(); // Update last button press time
-    currentCryptoIndex = (currentCryptoIndex + 1) % numCryptos; // Cycle to the next cryptocurrency
+    unsigned long currentMillis = millis();
+    if (digitalRead(buttonPin) == LOW && currentMillis - previousMillis > 200) {
+        previousMillis = currentMillis;
+        currentCryptoIndex = (currentCryptoIndex + 1) % numCryptos;
+        fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
+        displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
+    }
+}
 
-    // Fetch and display new cryptocurrency data immediately
-    float price = 0, percentChange = 0;
-    fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
-    displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
-  }
-  
-  // Regular data refresh logic
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
+void setBrightness(int brightness) {
+    ledcWrite(0, brightness);
+    Serial.print("Brightness set to: ");
+    Serial.println(brightness);
+}
 
-    float price = 0, percentChange = 0;
-    fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
-    displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
-  }
+void displayResetConfirmationScreen() {
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_WHITE);
+    tft.println("Reset WiFi Settings?");
+    tft.println("CONTINUE pressing MAIN button");
+    tft.println("OR");
+    tft.println("RELEASE to cancel");
+
+    // Wait for confirmation or cancellation
+    delay(5000); // Give time for decision, adjust as necessary
+
+    if (digitalRead(buttonPin) == LOW) { // Check if still pressed
+        clearWiFiCredentials();
+    } else {
+        tft.fillScreen(TFT_BLACK);
+        tft.println("Reset Canceled");
+        delay(2000);
+    }
+}
+
+void clearWiFiCredentials() {
+    WiFi.disconnect(true); // Clear credentials
+    Serial.println("WiFi credentials cleared.");
+    tft.fillScreen(TFT_BLACK);
+    tft.println("Credentials Cleared");
+    delay(2000);
+    ESP.restart(); // Restart the device to apply changes
 }
 
 void displayQRCodeForSSID(const char* ssid) {
-    // Format the string for an open WiFi network QR code
     String qrCodeContent = "WIFI:T:nopass;S:" + String(ssid) + ";;";
-
     QRCode qrcode;
-    uint8_t qrcodeData[qrcode_getBufferSize(3)]; // Adjust the version as needed
-    // Use qrCodeContent.c_str() to convert the String to a C-style string (char array)
-    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, qrCodeContent.c_str()); // Initialize the QR code
-
-    int scale = 4; // Adjust scale based on your display size and desired QR code size
-    int qrSize = qrcode.size * scale; // Total QR size in pixels
-
-    // Calculate starting position to center the QR code
+    uint8_t qrcodeData[qrcode_getBufferSize(3)];
+    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, qrCodeContent.c_str());
+    int scale = 4;
+    int qrSize = qrcode.size * scale;
     int startX = (tft.width() - qrSize) / 2;
     int startY = (tft.height() - qrSize) / 2;
-
-    tft.fillScreen(TFT_BLACK); // Clear the screen
-
-    // Draw each module of the QR code
+    tft.fillScreen(TFT_BLACK);
     for (int y = 0; y < qrcode.size; y++) {
         for (int x = 0; x < qrcode.size; x++) {
             if (qrcode_getModule(&qrcode, x, y)) {
@@ -102,40 +121,31 @@ void displayQRCodeForSSID(const char* ssid) {
             }
         }
     }
-
-    // Display instruction text below the QR code
-    tft.setCursor(startX - 30, startY + qrSize + 10); // Adjust y position to be just below the QR code
-    tft.setTextColor(TFT_WHITE, TFT_BLACK); // Set text color; adjust as needed
-    tft.setTextSize(2); // Adjust text size as needed
-    tft.println("Scan to connect");
+    tft.drawString("Scan to connect", startX - 30, startY + qrSize + 10, 2);
 }
 
 void fetchCryptoData(float &price, float &percentChange, const char* cryptoId) {
-  HTTPClient http;
-  String requestURL = "https://api.coingecko.com/api/v3/simple/price?ids=" + String(cryptoId) + "&vs_currencies=usd&include_24hr_change=true";
-  http.begin(requestURL);
-  int httpCode = http.GET();
-  
-  if (httpCode > 0) {
-    String payload = http.getString();
-    DynamicJsonDocument doc(1024);
-    deserializeJson(doc, payload);
-    JsonObject obj = doc[cryptoId].as<JsonObject>();
-    price = obj["usd"].as<float>();
-    percentChange = obj["usd_24h_change"].as<float>();
-  } else {
-    Serial.println("Error on HTTP request");
-  }
-
-  http.end();
+    HTTPClient http;
+    String requestURL = "https://api.coingecko.com/api/v3/simple/price?ids=" + String(cryptoId) + "&vs_currencies=usd&include_24hr_change=true";
+    http.begin(requestURL);
+    int httpCode = http.GET();
+    if (httpCode > 0) {
+        String payload = http.getString();
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, payload);
+        JsonObject obj = doc[cryptoId].as<JsonObject>();
+        price = obj["usd"].as<float>();
+        percentChange = obj["usd_24h_change"].as<float>();
+    } else {
+        Serial.println("Error on HTTP request");
+    }
+    http.end();
 }
 
 void displayCryptoData(float price, float percentChange, const char* cryptoName) {
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextSize(2);
-  tft.setCursor(10, 10);
-  tft.printf("Currency: %s\n", cryptoName);
-  tft.printf("Price: $%.2f\n", price);
-  tft.setCursor(10, 60);
-  tft.printf("24Hr Change: %.2f%%", percentChange);
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextSize(2);
+    tft.drawString("Currency: " + String(cryptoName), 10, 10, 2);
+    tft.drawString("Price: $" + String(price, 2), 10, 50, 2);
+    tft.drawString("24Hr Change: " + String(percentChange, 2) + "%", 10, 90, 2);
 }
