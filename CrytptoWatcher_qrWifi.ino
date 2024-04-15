@@ -4,15 +4,25 @@
 #include <HTTPClient.h>
 #include <qrcoderm.h>
 
+// Define color constants
+#define TFT_BLACK 0x0000
+#define TFT_WHITE 0xFFFF
+#define TFT_RED   0xF800
+#define TFT_GREEN 0x07E0
+
 // Global objects and variables
 TFT_eSPI tft = TFT_eSPI();   // Invoke library, pins defined in User_Setup.h
 const char* cryptoIds[] = {"bitcoin", "ethereum", "dogecoin", "monero"};
 const char* cryptoNames[] = {"BTC", "ETH", "DOGE", "XMR"};
 int currentCryptoIndex = 0;
 int numCryptos = sizeof(cryptoIds) / sizeof(cryptoIds[0]);
-
 const int buttonPin = 14; // Pin for cycling through cryptocurrencies
-const int confirmButtonPin = 0; // Normally the boot button, used to confirm user choices
+const int confirmButtonPin = 0; // Normally the boot button, used for brightness adjustment
+
+// Define the brightness levels, index, and current brightness
+const int brightnessLevels[4] = {64, 128, 192, 255}; // Different brightness levels
+int brightnessIndex = 0; // Start at the lowest brightness level
+int currentBrightness = brightnessLevels[brightnessIndex]; // Set initial brightness
 
 unsigned long previousMillis = 0; // Stores the last time the update was made
 const long interval = 60000; // Interval at which to refresh (milliseconds, 60 seconds)
@@ -28,6 +38,11 @@ void setup() {
     tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(1);
+
+    // Brightness setup
+    ledcSetup(0, 10000, 8);  // 10kHz PWM, 8-bit resolution
+    ledcAttachPin(38, 0);  // Assuming TFT_BL is the backlight pin defined somewhere
+    setBrightness(brightnessLevels[brightnessIndex]); // Set initial brightness
 
     // Check if the main button is pressed on startup
     bool resetPressed = digitalRead(buttonPin) == LOW;
@@ -65,12 +80,13 @@ void loop() {
         fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
         displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
     }
-}
-
-void setBrightness(int brightness) {
-    ledcWrite(0, brightness);
-    Serial.print("Brightness set to: ");
-    Serial.println(brightness);
+        // Check if the confirmButtonPin is pressed to adjust brightness
+    if (digitalRead(confirmButtonPin) == LOW) {
+        brightnessIndex = (brightnessIndex + 1) % 4; // Cycle through brightness levels
+        currentBrightness = brightnessLevels[brightnessIndex];
+        setBrightness(currentBrightness); // Update brightness
+        delay(500); // Add a small delay to debounce and slow down changes
+    }
 }
 
 void displayResetConfirmationScreen() {
@@ -145,7 +161,23 @@ void fetchCryptoData(float &price, float &percentChange, const char* cryptoId) {
 void displayCryptoData(float price, float percentChange, const char* cryptoName) {
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
+
+    uint16_t color = percentChange >= 0 ? TFT_GREEN : TFT_RED;
+
+    // Draw currency name
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("Currency: " + String(cryptoName), 10, 10, 2);
+
+    // Draw price and percent change
+    tft.setTextColor(color, TFT_BLACK);
     tft.drawString("Price: $" + String(price, 2), 10, 50, 2);
     tft.drawString("24Hr Change: " + String(percentChange, 2) + "%", 10, 90, 2);
+}
+
+// Define the setBrightness function
+void setBrightness(int brightness) {
+    ledcWrite(0, brightness);
+    currentBrightness = brightness;
+    Serial.print("Brightness set to: ");
+    Serial.println(brightness);
 }
