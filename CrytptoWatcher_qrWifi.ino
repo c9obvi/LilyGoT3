@@ -12,7 +12,8 @@
 
 // Instantiate display and sprite
 TFT_eSPI tft = TFT_eSPI();
-TFT_eSprite sprite = TFT_eSprite(&tft);  // Create a sprite object for dynamic content
+TFT_eSprite sprite = TFT_eSprite(&tft);  // Create top right sprite object for dynamic content
+TFT_eSprite bottomSprite = TFT_eSprite(&tft);  // Create another sprite object for the bottom left content
 
 // Button and brightness control
 const int buttonPin = 14;
@@ -41,12 +42,19 @@ void setup() {
 
     // Brightness setup using PWM
     ledcSetup(0, 5000, 8);  // 5kHz PWM, 8-bit resolution might be more stable
-    ledcAttachPin(38, 0);  // Make sure pin 38 is correct for your board and setup
+    ledcAttachPin(38, 0);  // Ensure pin 38 is correct for your board and setup
     setBrightness(brightnessLevels[brightnessIndex]);
 
-    // Initialize sprite for dynamic content
+    // Initialize top right sprite for dynamic content
     sprite.createSprite(80, 64); // Size of the sprite
     sprite.setPivot(320, 0);  // Top right corner of the screen
+
+    // Initialize bottom left sprite for static or less frequent updates
+    bottomSprite.createSprite(237, 64); // 2.5 times the width of the top sprite
+    bottomSprite.setPivot(0, tft.height() - 64);  // Bottom left corner of the screen
+    
+
+    // displayBottomSpritePlace();  // Draw initial content for the bottom sprite
 
     WiFiManager wifiManager;
     if (!wifiManager.autoConnect("CryptoWatcherAP")) {
@@ -114,12 +122,12 @@ void setBrightness(int brightness) {
 }
 void updateLightBar() {
     // Adjusted dimensions for a smaller light bar
-    int barX = 312, barY = 80, barWidth = 4, barHeight = 80; // Reduced height
+    int barX = 314, barY = 80, barWidth = 4, barHeight = 80; // Reduced height
     int segmentHeight = 18, segmentSpacing = 2;  // Smaller segment height
 
     // Clear the bar area to prepare for new drawing
-    tft.drawRoundRect(barX - 2, barY, barWidth + 4, barHeight + 4, 2, TFT_WHITE);  // Smaller boundary for the light bar
-    tft.fillRect(barX, barY + 3, barWidth, barHeight, TFT_BLACK);  // Clear previous fills
+    tft.drawRect(barX - 2, barY, barWidth + 4, barHeight + 4, TFT_WHITE);  // Smaller boundary for the light bar
+    tft.fillRect(barX, barY + 3, barWidth, barHeight, TFT_BLACK);  // Correct method for filling a rectangle
 
     // Calculate the number of segments to light up
     int totalLevels = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
@@ -236,13 +244,28 @@ void displayCryptoData(float price, float percentChange, const char* cryptoName)
     tft.drawString("Price: $" + String(price, 2), 10, 45, 2);
     tft.drawString("Change: " + String(percentChange, 2) + "%", 10, 75, 2);
 
-// Add a border to the sprite
+// Add a border to the top-right sprite
     sprite.drawRect(0, 0, 80, 64, TFT_WHITE); // Draw a white border around the sprite
-
     sprite.setTextColor(TFT_WHITE, TFT_BLACK);
-    sprite.drawString("Info", 5, 5, 2);
-    
+    sprite.drawString("Gif", 25, 25, 1);
+    sprite.drawString("Place Holder", 15, 35, 1);
     // Assuming your display is 320 pixels wide, to position the sprite at the top right:
     // The width of the sprite is 80, so we position its left edge at 320 - 80 = 240
     sprite.pushSprite(240, 0);  // Position the sprite at the top right corner
+    
+    // Bottom Sprite Bar
+    bottomSprite.fillSprite(TFT_BLACK);
+    // Draw a rounded rectangle around the border of the sprite
+    // Syntax: drawRoundRect(x, y, w, h, radius, color);
+    bottomSprite.drawRoundRect(1, 1, 235, 62, 5, TFT_WHITE); // Slightly smaller to fit inside the sprite
+    bottomSprite.setTextColor(TFT_WHITE, TFT_BLACK);
+    bottomSprite.drawString("Next SpaceX Launch..", 5, 25, 2);  // Placeholder text
+    bottomSprite.pushSprite(0, tft.height() - 64);  // Push to the display
 }
+
+// void displayBottomSpritePlace() {
+//     bottomSprite.fillSprite(TFT_BLACK);
+//     bottomSprite.setTextColor(TFT_WHITE, TFT_BLACK);
+//     bottomSprite.drawString("Future Updates Here", 5, 5, 2);  // Placeholder text
+//     bottomSprite.pushSprite(0, tft.height() - 64);  // Push to the display
+// }
