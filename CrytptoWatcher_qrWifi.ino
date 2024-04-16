@@ -1,6 +1,6 @@
-#include <WiFiManager.h> // Include the Wi-Fi Manager library
-#include <TFT_eSPI.h>     // Graphics and font library for ST7735 driver chip
-#include <ArduinoJson.h>  // Include ArduinoJson library for parsing the API response
+#include <WiFiManager.h> 
+#include <TFT_eSPI.h>     
+#include <ArduinoJson.h>  
 #include <HTTPClient.h>
 #include <qrcoderm.h>
 
@@ -10,62 +10,51 @@
 #define TFT_RED   0xF800
 #define TFT_GREEN 0x07E0
 
-// Global objects and variables
-TFT_eSPI tft = TFT_eSPI();   // Invoke library, pins defined in User_Setup.h
+// Instantiate display and sprite
+TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite sprite = TFT_eSprite(&tft);  // Create a sprite object for dynamic content
+
+// Button and brightness control
+const int buttonPin = 14;
+const int confirmButtonPin = 0;
+int brightnessLevels[] = {64, 128, 192, 255};
+int brightnessIndex = 0;
+bool brightnessChanged = false;  // Flag to track brightness changes
+int currentSetBrightness = 0;  // This will store the last brightness level set via PWM.
+
+// Crypto data variables
 const char* cryptoIds[] = {"bitcoin", "ethereum", "dogecoin", "monero"};
 const char* cryptoNames[] = {"BTC", "ETH", "DOGE", "XMR"};
 int currentCryptoIndex = 0;
-int numCryptos = sizeof(cryptoIds) / sizeof(cryptoIds[0]);
-const int buttonPin = 14; // Pin for cycling through cryptocurrencies
-const int confirmButtonPin = 0; // Normally the boot button, used for brightness adjustment
-
-// Define the brightness levels, index, and current brightness
-const int brightnessLevels[4] = {64, 128, 192, 255}; // Different brightness levels
-int brightnessIndex = 0; // Start at the lowest brightness level
-int currentBrightness = brightnessLevels[brightnessIndex]; // Set initial brightness
-
-unsigned long previousMillis = 0; // Stores the last time the update was made
-const long interval = 60000; // Interval at which to refresh (milliseconds, 60 seconds)
-
-float price = 0; // Declare price globally
-float percentChange = 0; // Declare percentChange globally
+float price = 0;
+float percentChange = 0;
 
 void setup() {
     Serial.begin(115200);
     pinMode(buttonPin, INPUT_PULLUP);
-    
+    pinMode(confirmButtonPin, INPUT_PULLUP);
+
     tft.init();
     tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(1);
 
-    // Brightness setup
-    ledcSetup(0, 10000, 8);  // 10kHz PWM, 8-bit resolution
-    ledcAttachPin(38, 0);  // Assuming TFT_BL is the backlight pin defined somewhere
-    setBrightness(brightnessLevels[brightnessIndex]); // Set initial brightness
+    // Brightness setup using PWM
+    ledcSetup(0, 5000, 8);  // 5kHz PWM, 8-bit resolution might be more stable
+    ledcAttachPin(38, 0);  // Make sure pin 38 is correct for your board and setup
+    setBrightness(brightnessLevels[brightnessIndex]);
 
-    // Check if the main button is pressed on startup
-    bool resetPressed = digitalRead(buttonPin) == LOW;
-    delay(100); // Debounce delay
-    resetPressed &= digitalRead(buttonPin) == LOW; // Check again to confirm
-
-    if (resetPressed) {
-        displayResetConfirmationScreen(); // Function that handles reset confirmation
-    }
+    // Initialize sprite for dynamic content
+    sprite.createSprite(80, 64); // Size of the sprite
+    sprite.setPivot(320, 0);  // Top right corner of the screen
 
     WiFiManager wifiManager;
     if (!wifiManager.autoConnect("CryptoWatcherAP")) {
         Serial.println("Failed to connect and hit timeout");
-        tft.fillScreen(TFT_BLACK);
-        displayQRCodeForSSID("CryptoWatcherAP"); 
+        displayQRCodeForSSID("CryptoWatcherAP");
     } else {
-        Serial.println("Connected to Wi-Fi");
-        Serial.print("IP Address: ");
-        Serial.println(WiFi.localIP());
-        tft.drawString("Crypto Watcher", 75, 40, 4);
-        tft.drawString("By 0xBerto", 95, 70, 4);
-        tft.drawString("Connected to WiFi", 65, 110, 4);
-        delay(3000);
+        showSplashScreen();
+        delay(1500); // Display splash screen for 1.5 seconds
     }
 
     fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
@@ -73,22 +62,121 @@ void setup() {
 }
 
 void loop() {
-    unsigned long currentMillis = millis();
-    if (digitalRead(buttonPin) == LOW && currentMillis - previousMillis > 200) {
-        previousMillis = currentMillis;
-        currentCryptoIndex = (currentCryptoIndex + 1) % numCryptos;
-        fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
-        displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
+    handleButtonInputs();
+    if (brightnessChanged) {
+        updateLightBar();
+        brightnessChanged = false;  // Reset flag after updating
     }
-        // Check if the confirmButtonPin is pressed to adjust brightness
-    if (digitalRead(confirmButtonPin) == LOW) {
-        brightnessIndex = (brightnessIndex + 1) % 4; // Cycle through brightness levels
-        currentBrightness = brightnessLevels[brightnessIndex];
-        setBrightness(currentBrightness); // Update brightness
-        delay(500); // Add a small delay to debounce and slow down changes
+
+    // Periodic brightness correction
+    static unsigned long lastBrightnessCheckMillis = 0;
+    const unsigned long brightnessCheckInterval = 1000;  // Check every second
+    if (millis() - lastBrightnessCheckMillis > brightnessCheckInterval) {
+        ledcWrite(0, currentSetBrightness);  // Re-apply the current brightness setting to correct any drift
+        lastBrightnessCheckMillis = millis();
     }
 }
 
+// user input logic
+void handleButtonInputs() {
+    static unsigned long lastButtonPress = 0;
+    const unsigned long debounceTime = 200;  // Debounce time in milliseconds
+
+    if (millis() - lastButtonPress < debounceTime) {
+        return;  // Exit if the debounce period has not passed
+    }
+
+    if (digitalRead(buttonPin) == LOW) {
+        lastButtonPress = millis();
+        currentCryptoIndex = (currentCryptoIndex + 1) % (sizeof(cryptoIds) / sizeof(cryptoIds[0]));
+        fetchCryptoData(price, percentChange, cryptoIds[currentCryptoIndex]);
+        displayCryptoData(price, percentChange, cryptoNames[currentCryptoIndex]);
+    }
+
+    if (digitalRead(confirmButtonPin) == LOW) {
+        lastButtonPress = millis();
+        brightnessIndex++;
+        if (brightnessIndex >= (sizeof(brightnessLevels) / sizeof(brightnessLevels[0]))) {
+            brightnessIndex = 0;
+        }
+        setBrightness(brightnessLevels[brightnessIndex]);
+        brightnessChanged = true;  // Set flag to true as brightness has changed
+    }
+}
+
+// Brightness function
+void setBrightness(int brightness) {
+    ledcWrite(0, brightness);
+    currentSetBrightness = brightness;  // Update the last set brightness level.
+    Serial.print("Brightness set to: ");
+    Serial.println(brightness);
+    brightnessChanged = true;  // Ensure the light bar updates.
+}
+void updateLightBar() {
+    // Adjusted dimensions for a smaller light bar
+    int barX = 312, barY = 80, barWidth = 4, barHeight = 80; // Reduced height
+    int segmentHeight = 18, segmentSpacing = 2;  // Smaller segment height
+
+    // Clear the bar area to prepare for new drawing
+    tft.drawRoundRect(barX - 2, barY, barWidth + 4, barHeight + 4, 2, TFT_WHITE);  // Smaller boundary for the light bar
+    tft.fillRect(barX, barY + 3, barWidth, barHeight, TFT_BLACK);  // Clear previous fills
+
+    // Calculate the number of segments to light up
+    int totalLevels = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
+    int seg = (brightnessIndex + 1) * (totalLevels / totalLevels);  // Ensure full range is utilized
+
+    // Calculate the starting position for the first segment at the bottom of the bar
+    int startY = barY + barHeight - segmentHeight; 
+
+    // Draw each segment
+    for (int i = 0; i < seg; i++) {
+        tft.fillRect(barX, startY - i * (segmentHeight + segmentSpacing), barWidth, segmentHeight, TFT_GREEN);
+    }
+    // Add vertical text "BRIGHTNESS" top-down
+    const char* text = "BRIGHTNESS";
+    int letterHeight = 9;  // Reduced height of each letter for smaller text
+    int textX = barX - 9;  // X position to the right of the bar, adjust as needed
+    int textY = barY;  // Start at the top of the bar
+
+    for (int i = 0; text[i] != '\0'; i++) {
+    tft.drawChar(textX, textY + i * letterHeight, text[i], TFT_WHITE, TFT_BLACK, 1);  // Using smaller font size
+  }
+} 
+
+// Splash Screen Nerd
+void showSplashScreen() {
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    Serial.println("Connected to Wi-Fi");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+    tft.drawString("Crypto Watcher", 75, 40, 4);
+    tft.drawString("By 0xBerto", 95, 70, 4);
+    tft.drawString("Connected to WiFi", 65, 110, 4);
+}
+
+// QR Code logic an display for connecting to device's AP and captive portal
+void displayQRCodeForSSID(const char* ssid) {
+    String qrCodeContent = "WIFI:T:nopass;S:" + String(ssid) + ";;";
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(3)];
+    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, qrCodeContent.c_str());
+    int scale = 4;
+    int qrSize = qrcode.size * scale;
+    int startX = (tft.width() - qrSize) / 2;
+    int startY = (tft.height() - qrSize) / 2;
+    tft.fillScreen(TFT_BLACK);
+    for (int y = 0; y < qrcode.size; y++) {
+        for (int x = 0; x < qrcode.size; x++) {
+            if (qrcode_getModule(&qrcode, x, y)) {
+                tft.fillRect(startX + x * scale, startY + y * scale, scale, scale, TFT_WHITE);
+            }
+        }
+    }
+    tft.drawString("Scan to connect", startX - 30, startY + qrSize + 10, 2);
+}
+
+// Wifi Credential Clearing Display & Logic
 void displayResetConfirmationScreen() {
     tft.fillScreen(TFT_BLACK);
     tft.setCursor(0, 0);
@@ -120,26 +208,7 @@ void clearWiFiCredentials() {
     ESP.restart(); // Restart the device to apply changes
 }
 
-void displayQRCodeForSSID(const char* ssid) {
-    String qrCodeContent = "WIFI:T:nopass;S:" + String(ssid) + ";;";
-    QRCode qrcode;
-    uint8_t qrcodeData[qrcode_getBufferSize(3)];
-    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, qrCodeContent.c_str());
-    int scale = 4;
-    int qrSize = qrcode.size * scale;
-    int startX = (tft.width() - qrSize) / 2;
-    int startY = (tft.height() - qrSize) / 2;
-    tft.fillScreen(TFT_BLACK);
-    for (int y = 0; y < qrcode.size; y++) {
-        for (int x = 0; x < qrcode.size; x++) {
-            if (qrcode_getModule(&qrcode, x, y)) {
-                tft.fillRect(startX + x * scale, startY + y * scale, scale, scale, TFT_WHITE);
-            }
-        }
-    }
-    tft.drawString("Scan to connect", startX - 30, startY + qrSize + 10, 2);
-}
-
+// Fetch & Display Data Area
 void fetchCryptoData(float &price, float &percentChange, const char* cryptoId) {
     HTTPClient http;
     String requestURL = "https://api.coingecko.com/api/v3/simple/price?ids=" + String(cryptoId) + "&vs_currencies=usd&include_24hr_change=true";
@@ -161,23 +230,19 @@ void fetchCryptoData(float &price, float &percentChange, const char* cryptoId) {
 void displayCryptoData(float price, float percentChange, const char* cryptoName) {
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
-
-    uint16_t color = percentChange >= 0 ? TFT_GREEN : TFT_RED;
-
-    // Draw currency name
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("Currency: " + String(cryptoName), 10, 10, 2);
+    tft.setTextColor(percentChange >= 0 ? TFT_GREEN : TFT_RED, TFT_BLACK);
+    tft.drawString("Price: $" + String(price, 2), 10, 45, 2);
+    tft.drawString("Change: " + String(percentChange, 2) + "%", 10, 75, 2);
 
-    // Draw price and percent change
-    tft.setTextColor(color, TFT_BLACK);
-    tft.drawString("Price: $" + String(price, 2), 10, 50, 2);
-    tft.drawString("24Hr Change: " + String(percentChange, 2) + "%", 10, 90, 2);
-}
+// Add a border to the sprite
+    sprite.drawRect(0, 0, 80, 64, TFT_WHITE); // Draw a white border around the sprite
 
-// Define the setBrightness function
-void setBrightness(int brightness) {
-    ledcWrite(0, brightness);
-    currentBrightness = brightness;
-    Serial.print("Brightness set to: ");
-    Serial.println(brightness);
+    sprite.setTextColor(TFT_WHITE, TFT_BLACK);
+    sprite.drawString("Info", 5, 5, 2);
+    
+    // Assuming your display is 320 pixels wide, to position the sprite at the top right:
+    // The width of the sprite is 80, so we position its left edge at 320 - 80 = 240
+    sprite.pushSprite(240, 0);  // Position the sprite at the top right corner
 }
